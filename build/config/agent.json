@@ -1,0 +1,12 @@
+{
+  "agent_id": "agent-1",
+  "backend_url": "http://localhost:8080",
+  "port": 50051,
+  "log_level": "info",
+  "max_servers": 50,
+  "java_path": "/usr/bin/java",
+  "work_dir": "/var/aymc/servers",
+  "enable_metrics": true,
+  "metrics_interval": 30000000000,
+  "custom_env": {}
+}

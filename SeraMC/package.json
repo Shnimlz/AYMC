@@ -1,5 +1,5 @@
 {
-  "name": "seramc",
+  "name": "aymc-frontend",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -7,18 +7,30 @@
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
   },
   "dependencies": {
-    "vue": "^3.5.13",
+    "@element-plus/icons-vue": "^2.3.1",
     "@tauri-apps/api": "^2",
-    "@tauri-apps/plugin-opener": "^2"
+    "@tauri-apps/plugin-opener": "^2",
+    "axios": "^1.6.2",
+    "dayjs": "^1.11.10",
+    "element-plus": "^2.4.4",
+    "pinia": "^2.1.7",
+    "vue": "^3.5.13",
+    "vue-router": "^4.2.5"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "@types/node": "^24.10.1",
     "@vitejs/plugin-vue": "^5.2.1",
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.32",
+    "tailwindcss": "^3.3.6",
     "typescript": "~5.6.2",
     "vite": "^6.0.3",
-    "vue-tsc": "^2.1.10",
-    "@tauri-apps/cli": "^2"
+    "vue-tsc": "^2.1.10"
   }
 }

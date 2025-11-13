@@ -265,10 +265,38 @@ func (s *Server) loggerMiddleware() gin.HandlerFunc {
 // corsMiddleware configures CORS headers
 func (s *Server) corsMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE, PATCH")
+		// En desarrollo, permitir cualquier origen
+		// En producción, deberías especificar orígenes específicos en la configuración
+		origin := c.Request.Header.Get("Origin")
+		if origin == "" {
+			origin = "*"
+		}
+		
+		// Para desarrollo local
+		allowedOrigins := []string{
+			"http://localhost:5173",  // Vite dev server
+			"http://localhost:3000",  // Alternativo
+			"http://localhost:8080",  // Mismo puerto (por si acaso)
+			"tauri://localhost",      // Tauri app
+			"https://tauri.localhost", // Tauri app (HTTPS)
+		}
+		
+		// Verificar si el origen está en la lista permitida o si es "*" en desarrollo
+		allowed := s.config.Server.Env != "production"
+		for _, allowedOrigin := range allowedOrigins {
+			if origin == allowedOrigin {
+				allowed = true
+				break
+			}
+		}
+		
+		if allowed {
+			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+			c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+			c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
+			c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE, PATCH")
+			c.Writer.Header().Set("Access-Control-Max-Age", "3600") // Cache preflight por 1 hora
+		}
 
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(http.StatusNoContent)
