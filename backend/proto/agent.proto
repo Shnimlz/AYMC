@@ -1,0 +1,290 @@
+syntax = "proto3";
+
+package agent;
+
+option go_package = "github.com/aymc/backend/proto";
+
+// Servicio principal del agente
+service AgentService {
+  // Información y estado del agente
+  rpc GetAgentInfo(Empty) returns (AgentInfo);
+  rpc GetSystemMetrics(Empty) returns (SystemMetrics);
+  
+  // Gestión de servidores
+  rpc ListServers(Empty) returns (ServerList);
+  rpc GetServer(ServerRequest) returns (ServerInfo);
+  rpc StartServer(StartServerRequest) returns (ServerResponse);
+  rpc StopServer(ServerRequest) returns (ServerResponse);
+  rpc RestartServer(ServerRequest) returns (ServerResponse);
+  
+  // Comandos y logs
+  rpc SendCommand(CommandRequest) returns (CommandResponse);
+  rpc StreamLogs(ServerRequest) returns (stream LogEntry);
+  
+  // Gestión de archivos
+  rpc ReadFile(FileRequest) returns (FileContent);
+  rpc WriteFile(WriteFileRequest) returns (FileResponse);
+  rpc ListFiles(DirectoryRequest) returns (FileList);
+  
+  // Gestión de plugins
+  rpc InstallPlugin(InstallPluginRequest) returns (PluginResponse);
+  rpc UninstallPlugin(UninstallPluginRequest) returns (PluginResponse);
+  rpc UpdatePlugin(UpdatePluginRequest) returns (PluginResponse);
+  rpc ListPlugins(ListPluginsRequest) returns (PluginList);
+  
+  // Instalación y dependencias
+  rpc CheckDependencies(Empty) returns (DependenciesStatus);
+  rpc InstallJava(JavaInstallRequest) returns (InstallResponse);
+  rpc DownloadServer(DownloadRequest) returns (stream DownloadProgress);
+  
+  // Heartbeat y health check
+  rpc Ping(Empty) returns (PongResponse);
+  rpc HealthCheck(Empty) returns (HealthStatus);
+}
+
+// Mensajes vacíos
+message Empty {}
+
+// Información del agente
+message AgentInfo {
+  string agent_id = 1;
+  string version = 2;
+  string platform = 3;
+  string platform_version = 4;
+  int64 uptime_seconds = 5;
+  int32 active_servers = 6;
+  int32 max_servers = 7;
+}
+
+// Métricas del sistema
+message SystemMetrics {
+  int64 timestamp = 1;
+  double cpu_percent = 2;
+  uint64 memory_total = 3;
+  uint64 memory_used = 4;
+  double memory_percent = 5;
+  uint64 disk_total = 6;
+  uint64 disk_used = 7;
+  double disk_percent = 8;
+  uint64 network_sent = 9;
+  uint64 network_recv = 10;
+  repeated int32 open_ports = 11;
+}
+
+// Servidor
+message ServerInfo {
+  string id = 1;
+  string name = 2;
+  string type = 3; // paper, purpur, velocity, etc.
+  string version = 4;
+  string java_version = 5;
+  int32 port = 6;
+  string status = 7;
+  int32 pid = 8;
+  int64 start_time = 9;
+  string work_dir = 10;
+  ServerConfig config = 11;
+}
+
+message ServerConfig {
+  string min_ram = 1;
+  string max_ram = 2;
+  repeated string java_args = 3;
+  string jar_file = 4;
+  bool auto_restart = 5;
+  map<string, string> custom_args = 6;
+}
+
+message ServerList {
+  repeated ServerInfo servers = 1;
+}
+
+message ServerRequest {
+  string server_id = 1;
+}
+
+message StartServerRequest {
+  string server_id = 1;
+  string name = 2;
+  string type = 3;
+  string version = 4;
+  ServerConfig config = 5;
+}
+
+message ServerResponse {
+  bool success = 1;
+  string message = 2;
+  ServerInfo server = 3;
+}
+
+// Comandos
+message CommandRequest {
+  string server_id = 1;
+  string command = 2;
+}
+
+message CommandResponse {
+  bool success = 1;
+  string message = 2;
+  string output = 3;
+}
+
+// Logs
+message LogEntry {
+  int64 timestamp = 1;
+  string server_id = 2;
+  string level = 3; // INFO, WARN, ERROR, DEBUG
+  string source = 4; // STDOUT, STDERR
+  string message = 5;
+  string plugin = 6; // plugin que generó el log (si se detecta)
+  string file = 7; // archivo de origen (si se detecta)
+  int32 line = 8; // línea de origen (si se detecta)
+}
+
+// Archivos
+message FileRequest {
+  string path = 1;
+  int64 offset = 2;
+  int64 length = 3;
+}
+
+message FileContent {
+  bytes content = 1;
+  int64 size = 2;
+  int64 modified_time = 3;
+}
+
+message WriteFileRequest {
+  string path = 1;
+  bytes content = 2;
+  bool create_dirs = 3;
+}
+
+message FileResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message DirectoryRequest {
+  string path = 1;
+  bool recursive = 2;
+}
+
+message FileList {
+  repeated FileInfo files = 1;
+}
+
+message FileInfo {
+  string name = 1;
+  string path = 2;
+  int64 size = 3;
+  bool is_dir = 4;
+  int64 modified_time = 5;
+  int32 permissions = 6;
+}
+
+// Dependencias
+message DependenciesStatus {
+  bool java_installed = 1;
+  string java_version = 2;
+  repeated string java_paths = 3;
+  bool screen_installed = 4;
+  bool tmux_installed = 5;
+  map<string, string> environment = 6;
+}
+
+message JavaInstallRequest {
+  string version = 1; // 8, 11, 17, 21
+  bool use_sudo = 2;
+}
+
+message InstallResponse {
+  bool success = 1;
+  string message = 2;
+  repeated string logs = 3;
+}
+
+message DownloadRequest {
+  string url = 1;
+  string destination = 2;
+  string sha256 = 3; // hash para validación
+  string server_type = 4; // paper, purpur, velocity
+  string version = 5;
+}
+
+message DownloadProgress {
+  int64 downloaded = 1;
+  int64 total = 2;
+  double percent = 3;
+  string status = 4;
+  bool complete = 5;
+  string error = 6;
+}
+
+// Health y ping
+message PongResponse {
+  int64 timestamp = 1;
+  string message = 2;
+}
+
+message HealthStatus {
+  bool healthy = 1;
+  string status = 2;
+  map<string, string> checks = 3;
+  int64 timestamp = 4;
+}
+
+// Gestión de plugins
+message InstallPluginRequest {
+  string server_id = 1;
+  string plugin_name = 2;
+  string download_url = 3;
+  string file_name = 4;
+  string version = 5;
+  bool auto_restart = 6; // reiniciar servidor después de instalar
+}
+
+message UninstallPluginRequest {
+  string server_id = 1;
+  string plugin_name = 2;
+  bool delete_config = 3; // eliminar archivos de configuración
+  bool delete_data = 4; // eliminar datos del plugin
+  bool auto_restart = 5; // reiniciar servidor después de desinstalar
+}
+
+message UpdatePluginRequest {
+  string server_id = 1;
+  string plugin_name = 2;
+  string download_url = 3;
+  string file_name = 4;
+  string new_version = 5;
+  bool auto_restart = 6; // reiniciar servidor después de actualizar
+}
+
+message ListPluginsRequest {
+  string server_id = 1;
+  bool include_disabled = 2;
+}
+
+message PluginResponse {
+  bool success = 1;
+  string message = 2;
+  PluginInfo plugin = 3;
+}
+
+message PluginInfo {
+  string name = 1;
+  string version = 2;
+  string description = 3;
+  string author = 4;
+  bool enabled = 5;
+  string file_name = 6;
+  int64 file_size = 7;
+  int64 installed_at = 8;
+  repeated string dependencies = 9;
+}
+
+message PluginList {
+  repeated PluginInfo plugins = 1;
+  int32 total = 2;
+}

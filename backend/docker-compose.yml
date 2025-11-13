@@ -1,0 +1,100 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: aymc-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: aymc
+      POSTGRES_PASSWORD: aymc_secret_password
+      POSTGRES_DB: aymc_db
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - aymc-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aymc -d aymc_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: aymc-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - aymc-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: redis-server --appendonly yes
+
+  adminer:
+    image: adminer:latest
+    container_name: aymc-adminer
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    networks:
+      - aymc-network
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    depends_on:
+      - postgres
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aymc-backend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: 8080
+      HOST: 0.0.0.0
+      ENV: development
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: aymc
+      DB_PASSWORD: aymc_secret_password
+      DB_NAME: aymc_db
+      DB_SSL_MODE: disable
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: development-secret-key-change-in-production
+      LOG_LEVEL: debug
+      LOG_FORMAT: console
+    volumes:
+      - ./:/app
+      - go_cache:/go/pkg/mod
+    networks:
+      - aymc-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: go run cmd/server/main.go
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  go_cache:
+    driver: local
+
+networks:
+  aymc-network:
+    driver: bridge

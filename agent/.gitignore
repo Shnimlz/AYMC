@@ -1,0 +1,54 @@
+# Binarios
+aymc-agent
+aymc-agent-*
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binaries
+*.test
+*.out
+
+# Directorios de Go
+/vendor/
+/bin/
+/pkg/
+
+# Archivos de configuración locales
+agent.json
+*.local.json
+
+# Certificados y claves
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Logs
+*.log
+/logs/
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Protobuf generado (comentar si quieres commitear)
+# grpc/pb/*.pb.go
+
+# Cobertura de tests
+coverage.out
+coverage.html
+
+# Temporales
+tmp/
+temp/
+.tmp/
+
+# Sistema operativo
+Thumbs.db
