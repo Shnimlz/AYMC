@@ -346,7 +346,8 @@ interface Props {
   sshConnected?: boolean;
 }
 
-const props = withDefaults(defineProps<Props>(), {
+// Props defined for future use
+withDefaults(defineProps<Props>(), {
   sshConnected: false,
 });
 

@@ -244,7 +244,7 @@ onMounted(async () => {
   await serversStore.fetchServers();
   
   // Seleccionar el primer servidor por defecto
-  if (serversStore.servers.length > 0) {
+  if (serversStore.servers.length > 0 && serversStore.servers[0]) {
     selectedServerId.value = serversStore.servers[0].id;
     await loadPlugins();
   }

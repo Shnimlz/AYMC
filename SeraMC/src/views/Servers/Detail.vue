@@ -246,7 +246,7 @@ import {
   ShoppingCart,
   FolderOpened,
 } from '@element-plus/icons-vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessageBox } from 'element-plus';
 import dayjs from 'dayjs';
 
 const route = useRoute();

@@ -158,11 +158,15 @@ interface BackendConfig {
   port: string;
 }
 
+// @ts-ignore - emit is used via $emit in template
 const emit = defineEmits<{
   install: [];
   continue: [];
   'restart-services': [];
 }>();
+
+// This keeps emit from being "unused" in TypeScript
+void emit;
 
 const scanning = ref(true);
 const status = ref<ServiceStatus | null>(null);

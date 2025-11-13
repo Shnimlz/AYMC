@@ -92,7 +92,6 @@ import { ref, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import {
-  Dashboard,
   Monitor,
   ShoppingCart,
   FolderOpened,
@@ -103,6 +102,7 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowRight,
+  Odometer,
 } from '@element-plus/icons-vue';
 import { ElMessageBox } from 'element-plus';
 
@@ -115,7 +115,7 @@ const menuItems = [
   {
     path: '/dashboard',
     title: 'Panel de Control',
-    icon: Dashboard,
+    icon: Odometer,
   },
   {
     path: '/servers',

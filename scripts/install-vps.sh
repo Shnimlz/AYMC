@@ -89,6 +89,7 @@ case $DISTRO in
         pacman -Sy --noconfirm --needed \
             postgresql \
             jdk-openjdk \
+            git \
             wget \
             curl \
             tar \
@@ -115,6 +116,7 @@ case $DISTRO in
             postgresql \
             postgresql-contrib \
             openjdk-21-jdk \
+            git \
             wget \
             curl \
             tar \
@@ -127,6 +129,7 @@ case $DISTRO in
             postgresql-server \
             postgresql-contrib \
             java-21-openjdk \
+            git \
             wget \
             curl \
             tar \
@@ -184,50 +187,151 @@ log_success "Directorios creados"
 echo ""
 
 #################################################
-# COPIAR BINARIOS
+# DESCARGAR E INSTALAR DESDE GITHUB
 #################################################
 
 log_info "═══════════════════════════════════════"
-log_info "  INSTALANDO BINARIOS"
+log_info "  DESCARGANDO AYMC DESDE GITHUB"
 log_info "═══════════════════════════════════════"
 echo ""
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+GITHUB_REPO="https://github.com/Shnimlz/AYMC.git"
+TEMP_DIR="/tmp/aymc-install-$$"
 
-# Copiar backend
+# Crear directorio temporal
+log_info "Creando directorio temporal: $TEMP_DIR"
+mkdir -p "$TEMP_DIR"
+
+# Verificar que git esté instalado
+if ! command -v git &> /dev/null; then
+    log_info "Git no está instalado, instalando..."
+    case $DISTRO in
+        arch|manjaro)
+            pacman -S --noconfirm git
+            ;;
+        ubuntu|debian)
+            apt-get install -y git
+            ;;
+        rhel|centos|fedora|rocky|almalinux)
+            yum install -y git
+            ;;
+    esac
+    log_success "Git instalado"
+fi
+
+# Clonar repositorio
+log_info "Clonando repositorio AYMC..."
+if git clone --depth 1 "$GITHUB_REPO" "$TEMP_DIR/aymc"; then
+    log_success "Repositorio clonado exitosamente"
+else
+    log_error "Error al clonar el repositorio"
+    log_info "Verifica tu conexión a internet y que el repositorio sea accesible:"
+    log_info "$GITHUB_REPO"
+    rm -rf "$TEMP_DIR"
+    exit 1
+fi
+
+# Instalar backend
 log_info "Instalando backend..."
-if [ -f "$SCRIPT_DIR/backend/aymc-backend" ]; then
-    cp "$SCRIPT_DIR/backend/aymc-backend" "$INSTALL_DIR/backend/"
+if [ -f "$TEMP_DIR/aymc/backend/aymc-backend" ]; then
+    cp "$TEMP_DIR/aymc/backend/aymc-backend" "$INSTALL_DIR/backend/"
     chmod +x "$INSTALL_DIR/backend/aymc-backend"
     log_success "Backend instalado"
+elif [ -d "$TEMP_DIR/aymc/backend" ]; then
+    log_info "Binario no encontrado, buscando en el repositorio..."
+    # Intentar encontrar el binario en subdirectorios
+    BACKEND_BIN=$(find "$TEMP_DIR/aymc/backend" -type f -name "aymc-backend" -o -name "backend" | head -n1)
+    if [ -n "$BACKEND_BIN" ]; then
+        cp "$BACKEND_BIN" "$INSTALL_DIR/backend/aymc-backend"
+        chmod +x "$INSTALL_DIR/backend/aymc-backend"
+        log_success "Backend instalado desde: $BACKEND_BIN"
+    else
+        log_error "No se encontró el binario del backend en el repositorio"
+        log_info "Estructura esperada: backend/aymc-backend"
+        rm -rf "$TEMP_DIR"
+        exit 1
+    fi
 else
-    log_error "No se encontró el binario del backend"
+    log_error "Directorio backend no encontrado en el repositorio"
+    rm -rf "$TEMP_DIR"
     exit 1
 fi
 
-# Copiar agent
+# Instalar agent
 log_info "Instalando agent..."
-if [ -f "$SCRIPT_DIR/agent/aymc-agent" ]; then
-    cp "$SCRIPT_DIR/agent/aymc-agent" "$INSTALL_DIR/agent/"
+if [ -f "$TEMP_DIR/aymc/agent/aymc-agent" ]; then
+    cp "$TEMP_DIR/aymc/agent/aymc-agent" "$INSTALL_DIR/agent/"
     chmod +x "$INSTALL_DIR/agent/aymc-agent"
     log_success "Agent instalado"
+elif [ -d "$TEMP_DIR/aymc/agent" ]; then
+    log_info "Binario no encontrado, buscando en el repositorio..."
+    # Intentar encontrar el binario en subdirectorios
+    AGENT_BIN=$(find "$TEMP_DIR/aymc/agent" -type f -name "aymc-agent" -o -name "agent" | head -n1)
+    if [ -n "$AGENT_BIN" ]; then
+        cp "$AGENT_BIN" "$INSTALL_DIR/agent/aymc-agent"
+        chmod +x "$INSTALL_DIR/agent/aymc-agent"
+        log_success "Agent instalado desde: $AGENT_BIN"
+    else
+        log_error "No se encontró el binario del agent en el repositorio"
+        log_info "Estructura esperada: agent/aymc-agent"
+        rm -rf "$TEMP_DIR"
+        exit 1
+    fi
 else
-    log_error "No se encontró el binario del agent"
+    log_error "Directorio agent no encontrado en el repositorio"
+    rm -rf "$TEMP_DIR"
     exit 1
 fi
 
-# Copiar configuraciones
+# Copiar configuraciones si existen
 log_info "Instalando configuraciones..."
-if [ -f "$SCRIPT_DIR/config/backend.env" ]; then
-    cp "$SCRIPT_DIR/config/backend.env" "$CONFIG_DIR/backend.env"
+if [ -f "$TEMP_DIR/aymc/config/backend.env" ]; then
+    cp "$TEMP_DIR/aymc/config/backend.env" "$CONFIG_DIR/backend.env"
     chmod 600 "$CONFIG_DIR/backend.env"
-fi
-if [ -f "$SCRIPT_DIR/config/agent.json" ]; then
-    cp "$SCRIPT_DIR/config/agent.json" "$CONFIG_DIR/agent.json"
-    chmod 600 "$CONFIG_DIR/agent.json"
+    log_success "Configuración de backend copiada"
+elif [ ! -f "$CONFIG_DIR/backend.env" ]; then
+    # Crear configuración por defecto si no existe
+    log_info "Creando configuración por defecto para backend..."
+    cat > "$CONFIG_DIR/backend.env" << EOF
+# AYMC Backend Configuration
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=aymc
+DB_USER=aymc
+DB_PASSWORD=changeme
+JWT_SECRET=changeme
+CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+API_PORT=8080
+LOG_LEVEL=info
+EOF
+    chmod 600 "$CONFIG_DIR/backend.env"
+    log_success "Configuración por defecto creada"
 fi
 
-log_success "Configuraciones instaladas"
+if [ -f "$TEMP_DIR/aymc/config/agent.json" ]; then
+    cp "$TEMP_DIR/aymc/config/agent.json" "$CONFIG_DIR/agent.json"
+    chmod 600 "$CONFIG_DIR/agent.json"
+    log_success "Configuración de agent copiada"
+elif [ ! -f "$CONFIG_DIR/agent.json" ]; then
+    # Crear configuración por defecto si no existe
+    log_info "Creando configuración por defecto para agent..."
+    cat > "$CONFIG_DIR/agent.json" << EOF
+{
+  "grpc_port": 50051,
+  "backend_url": "http://localhost:8080",
+  "data_dir": "/var/aymc",
+  "log_level": "info",
+  "max_servers": 20
+}
+EOF
+    chmod 600 "$CONFIG_DIR/agent.json"
+    log_success "Configuración por defecto creada"
+fi
+
+# Limpiar directorio temporal
+log_info "Limpiando archivos temporales..."
+rm -rf "$TEMP_DIR"
+log_success "Instalación completada desde GitHub"
 echo ""
 
 #################################################
@@ -485,7 +589,10 @@ log_success "══════════════════════�
 log_success "  ¡INSTALACIÓN COMPLETADA!"
 log_success "═══════════════════════════════════════"
 echo ""
-log_info "📁 Instalación:"
+log_info "� GitHub:"
+echo "   Repositorio: https://github.com/Shnimlz/AYMC"
+echo ""
+log_info "�📁 Instalación:"
 echo "   Backend: $INSTALL_DIR/backend/aymc-backend"
 echo "   Agent:   $INSTALL_DIR/agent/aymc-agent"
 echo ""
@@ -527,6 +634,7 @@ log_warning "⚠️  IMPORTANTE:"
 echo "   1. Cambia las contraseñas en: $CONFIG_DIR/backend.env"
 echo "   2. Configura CORS_ORIGINS según tu frontend"
 echo "   3. Considera usar HTTPS en producción (Nginx + Let's Encrypt)"
+echo "   4. Los binarios se descargaron desde: https://github.com/Shnimlz/AYMC"
 echo ""
 log_success "¡Disfruta de AYMC! 🎉"
 echo ""

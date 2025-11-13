@@ -207,7 +207,7 @@ export const useServersStore = defineStore("servers", () => {
 
       // Actualizar en la lista
       const index = servers.value.findIndex((s) => s.id === id);
-      if (index !== -1 && response.data.status) {
+      if (index !== -1 && response.data.status && servers.value[index]) {
         servers.value[index].status = response.data.status;
       }
 
@@ -226,7 +226,7 @@ export const useServersStore = defineStore("servers", () => {
   function updateServerStatus(id: string, status: Server["status"]) {
     // Actualizar en la lista
     const index = servers.value.findIndex((s) => s.id === id);
-    if (index !== -1) {
+    if (index !== -1 && servers.value[index]) {
       servers.value[index].status = status;
     }
 

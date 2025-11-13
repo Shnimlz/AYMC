@@ -171,7 +171,7 @@ const form = reactive({
   auto_start: false,
 });
 
-const validateRam = (rule: any, value: any, callback: any) => {
+const validateRam = (_rule: any, value: any, callback: any) => {
   if (value < form.ram_min) {
     callback(new Error('La RAM máxima debe ser mayor o igual a la RAM mínima'));
   } else {

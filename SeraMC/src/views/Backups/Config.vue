@@ -124,7 +124,7 @@
         <el-form-item label="Rutas Excluidas">
           <div class="w-full space-y-2">
             <div
-              v-for="(path, index) in config.exclude_paths"
+              v-for="(_path, index) in config.exclude_paths"
               :key="index"
               class="flex gap-2"
             >
@@ -233,7 +233,7 @@ const config = reactive({
   exclude_paths: [] as string[],
 });
 
-const validateCron = (rule: any, value: any, callback: any) => {
+const validateCron = (_rule: any, value: any, callback: any) => {
   // Validación básica de formato cron (5 campos)
   const cronRegex = /^(\*|[0-9,\-*/]+)\s+(\*|[0-9,\-*/]+)\s+(\*|[0-9,\-*/]+)\s+(\*|[0-9,\-*/]+)\s+(\*|[0-9,\-*/]+)$/;
   if (!cronRegex.test(value)) {
@@ -297,7 +297,7 @@ onMounted(async () => {
   await serversStore.fetchServers();
   
   // Seleccionar el primer servidor por defecto
-  if (serversStore.servers.length > 0) {
+  if (serversStore.servers.length > 0 && serversStore.servers[0]) {
     selectedServerId.value = serversStore.servers[0].id;
     await loadConfig();
   }

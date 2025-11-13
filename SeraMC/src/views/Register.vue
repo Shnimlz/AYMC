@@ -112,7 +112,7 @@ const registerForm = reactive({
   confirmPassword: '',
 });
 
-const validatePass = (rule: any, value: any, callback: any) => {
+const validatePass = (_rule: any, value: any, callback: any) => {
   if (value === '') {
     callback(new Error('Por favor confirma tu contraseña'));
   } else if (value !== registerForm.password) {
