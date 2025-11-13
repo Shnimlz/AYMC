@@ -5,7 +5,7 @@ import (
 	"net"
 
 	"github.com/aymc/agent/core"
-	pb "github.com/aymc/agent/proto"
+	pb "github.com/aymc/agent/grpc/pb"
 	"github.com/aymc/agent/security"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"

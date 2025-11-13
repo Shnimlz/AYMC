@@ -15,7 +15,8 @@ import (
 	"time"
 
 	"github.com/aymc/agent/core"
-	pb "github.com/aymc/agent/proto"
+	pb "github.com/aymc/agent/grpc/pb"
+	"github.com/aymc/agent/utils"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gopkg.in/yaml.v3"
@@ -1119,4 +1120,185 @@ func validateSHA512(filePath string, expectedHash string) (bool, error) {
 	return strings.EqualFold(actualHash, expectedHash), nil
 }
 
+// CreateBackup crea un backup del servidor
+func (s *agentServiceImpl) CreateBackup(ctx context.Context, req *pb.CreateBackupRequest) (*pb.CreateBackupResponse, error) {
+	startTime := time.Now()
+	log.Printf("[INFO] CreateBackup llamado para servidor %s", req.ServerId)
+
+	// Verificar que el servidor existe
+	server, err := s.agent.GetServer(req.ServerId)
+	if err != nil {
+		return &pb.CreateBackupResponse{
+			Success: false,
+			Message: fmt.Sprintf("Servidor no encontrado: %v", err),
+		}, nil
+	}
+
+	// Detener servidor si se solicita
+	if req.StopServer {
+		log.Printf("[INFO] Deteniendo servidor antes del backup...")
+		if err := s.agent.StopServer(req.ServerId); err != nil {
+			return &pb.CreateBackupResponse{
+				Success: false,
+				Message: fmt.Sprintf("Error deteniendo servidor: %v", err),
+			}, nil
+		}
+		// Esperar un momento para asegurar que el servidor se detuvo completamente
+		time.Sleep(2 * time.Second)
+	}
+
+	// Crear directorio de destino si no existe
+	if err := os.MkdirAll(filepath.Dir(req.Destination), 0755); err != nil {
+		return &pb.CreateBackupResponse{
+			Success: false,
+			Message: fmt.Sprintf("Error creando directorio de destino: %v", err),
+		}, nil
+	}
+
+	// Crear el archivo tar.gz
+	backupPath := req.Destination
+	if !strings.HasSuffix(backupPath, ".tar.gz") && req.Compression == "gzip" {
+		backupPath += ".tar.gz"
+	}
+
+	// Determinar qué incluir en el backup
+	includePaths := make(map[string]bool)
+	if req.IncludeWorld {
+		includePaths["world"] = true
+		includePaths["world_nether"] = true
+		includePaths["world_the_end"] = true
+	}
+	if req.IncludePlugins {
+		includePaths["plugins"] = true
+	}
+	if req.IncludeConfig {
+		includePaths["server.properties"] = true
+		includePaths["bukkit.yml"] = true
+		includePaths["spigot.yml"] = true
+		includePaths["paper.yml"] = true
+		includePaths["pufferfish.yml"] = true
+		includePaths["purpur.yml"] = true
+		includePaths["config"] = true
+	}
+	if req.IncludeLogs {
+		includePaths["logs"] = true
+	}
+
+	// Si backup_type es "full", incluir todo
+	if req.BackupType == "full" {
+		includePaths = nil // nil significa incluir todo
+	}
+
+	// Crear el backup
+	size, checksum, err := utils.CreateTarGzBackup(server.WorkDir, backupPath, includePaths, req.ExcludePaths, req.Compression == "gzip")
+	if err != nil {
+		return &pb.CreateBackupResponse{
+			Success: false,
+			Message: fmt.Sprintf("Error creando backup: %v", err),
+		}, nil
+	}
+
+	duration := time.Since(startTime).Milliseconds()
+
+	log.Printf("[INFO] Backup creado exitosamente: %s (%d bytes) en %d ms", backupPath, size, duration)
+
+	return &pb.CreateBackupResponse{
+		Success:    true,
+		Message:    "Backup creado exitosamente",
+		BackupPath: backupPath,
+		SizeBytes:  size,
+		Checksum:   checksum,
+		DurationMs: duration,
+	}, nil
+}
+
+// RestoreBackup restaura un backup del servidor
+func (s *agentServiceImpl) RestoreBackup(ctx context.Context, req *pb.RestoreBackupRequest) (*pb.RestoreBackupResponse, error) {
+	startTime := time.Now()
+	log.Printf("[INFO] RestoreBackup llamado para servidor %s desde %s", req.ServerId, req.BackupPath)
+
+	// Verificar que el servidor existe
+	server, err := s.agent.GetServer(req.ServerId)
+	if err != nil {
+		return &pb.RestoreBackupResponse{
+			Success: false,
+			Message: fmt.Sprintf("Servidor no encontrado: %v", err),
+		}, nil
+	}
+
+	// Verificar que el archivo de backup existe
+	if _, err := os.Stat(req.BackupPath); os.IsNotExist(err) {
+		return &pb.RestoreBackupResponse{
+			Success: false,
+			Message: "Archivo de backup no encontrado",
+		}, nil
+	}
+
+	var safetyBackupPath string
+
+	// Crear backup de seguridad si se solicita
+	if req.BackupBeforeRestore {
+		log.Printf("[INFO] Creando backup de seguridad antes de restaurar...")
+		safetyBackupPath = filepath.Join(filepath.Dir(req.BackupPath), fmt.Sprintf("safety-backup-%d.tar.gz", time.Now().Unix()))
+		
+		_, _, err := utils.CreateTarGzBackup(server.WorkDir, safetyBackupPath, nil, nil, true)
+		if err != nil {
+			log.Printf("[WARN] Error creando backup de seguridad: %v", err)
+			// Continuar de todas formas
+		} else {
+			log.Printf("[INFO] Backup de seguridad creado: %s", safetyBackupPath)
+		}
+	}
+
+	// Detener servidor si se solicita
+	if req.StopServer {
+		log.Printf("[INFO] Deteniendo servidor antes de restaurar...")
+		if err := s.agent.StopServer(req.ServerId); err != nil {
+			return &pb.RestoreBackupResponse{
+				Success: false,
+				Message: fmt.Sprintf("Error deteniendo servidor: %v", err),
+			}, nil
+		}
+		time.Sleep(2 * time.Second)
+	}
+
+	// Determinar qué restaurar
+	restorePaths := make(map[string]bool)
+	if req.RestoreWorld {
+		restorePaths["world"] = true
+		restorePaths["world_nether"] = true
+		restorePaths["world_the_end"] = true
+	}
+	if req.RestorePlugins {
+		restorePaths["plugins"] = true
+	}
+	if req.RestoreConfig {
+		restorePaths["server.properties"] = true
+		restorePaths["bukkit.yml"] = true
+		restorePaths["spigot.yml"] = true
+		restorePaths["paper.yml"] = true
+		restorePaths["pufferfish.yml"] = true
+		restorePaths["purpur.yml"] = true
+		restorePaths["config"] = true
+	}
+
+	// Extraer el backup
+	if err := utils.ExtractTarGzBackup(req.BackupPath, server.WorkDir, restorePaths); err != nil {
+		return &pb.RestoreBackupResponse{
+			Success: false,
+			Message: fmt.Sprintf("Error restaurando backup: %v", err),
+		}, nil
+	}
+
+	duration := time.Since(startTime).Milliseconds()
+
+	log.Printf("[INFO] Backup restaurado exitosamente en %d ms", duration)
+
+	return &pb.RestoreBackupResponse{
+		Success:          true,
+		Message:          "Backup restaurado exitosamente",
+		DurationMs:       duration,
+		SafetyBackupPath: safetyBackupPath,
+	}, nil
+}
 

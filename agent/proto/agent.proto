@@ -37,6 +37,10 @@ service AgentService {
   rpc UpdatePlugin(UpdatePluginRequest) returns (PluginResponse);
   rpc ListPlugins(ListPluginsRequest) returns (PluginList);
   
+  // Gestión de backups
+  rpc CreateBackup(CreateBackupRequest) returns (CreateBackupResponse);
+  rpc RestoreBackup(RestoreBackupRequest) returns (RestoreBackupResponse);
+  
   // Heartbeat y health check
   rpc Ping(Empty) returns (PongResponse);
   rpc HealthCheck(Empty) returns (HealthStatus);
@@ -287,4 +291,44 @@ message PluginInfo {
 message PluginList {
   repeated PluginInfo plugins = 1;
   int32 total = 2;
+}
+
+// Gestión de backups
+message CreateBackupRequest {
+  string server_id = 1;
+  string backup_type = 2; // full, world, plugins, config
+  string destination = 3; // ruta donde guardar el backup
+  string compression = 4; // gzip, bzip2, none
+  bool stop_server = 5; // detener servidor antes de hacer backup
+  bool include_world = 6;
+  bool include_plugins = 7;
+  bool include_config = 8;
+  bool include_logs = 9;
+  repeated string exclude_paths = 10; // rutas a excluir
+}
+
+message CreateBackupResponse {
+  bool success = 1;
+  string message = 2;
+  string backup_path = 3;
+  int64 size_bytes = 4;
+  string checksum = 5; // SHA256
+  int64 duration_ms = 6;
+}
+
+message RestoreBackupRequest {
+  string server_id = 1;
+  string backup_path = 2;
+  bool stop_server = 3; // detener servidor antes de restaurar
+  bool restore_world = 4;
+  bool restore_plugins = 5;
+  bool restore_config = 6;
+  bool backup_before_restore = 7; // crear backup de seguridad antes de restaurar
+}
+
+message RestoreBackupResponse {
+  bool success = 1;
+  string message = 2;
+  int64 duration_ms = 3;
+  string safety_backup_path = 4; // path del backup de seguridad si se creó
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/aymc/backend/config"
 	"github.com/aymc/backend/services/agents"
 	"github.com/aymc/backend/services/auth"
+	"github.com/aymc/backend/services/backup"
 	"github.com/aymc/backend/services/marketplace"
 	"github.com/aymc/backend/services/server"
 	"github.com/gin-gonic/gin"
@@ -27,13 +28,14 @@ type Server struct {
 	serverHandler     *handlers.ServerHandler
 	agentHandler      *handlers.AgentHandler
 	marketplaceHandler *handlers.MarketplaceHandler
+	backupHandler     *handlers.BackupHandler
 	wsHandler         *websocket.Handler
 	jwtService        *auth.JWTService
 	logger            *zap.Logger
 }
 
 // NewServer creates a new REST API server
-func NewServer(cfg *config.Config, jwtService *auth.JWTService, authService *auth.AuthService, serverService *server.ServerService, agentService *agents.AgentService, marketplaceService *marketplace.Service, wsHub *websocket.Hub, logger *zap.Logger) *Server {
+func NewServer(cfg *config.Config, jwtService *auth.JWTService, authService *auth.AuthService, serverService *server.ServerService, agentService *agents.AgentService, marketplaceService *marketplace.Service, backupService *backup.Service, backupScheduler *backup.Scheduler, wsHub *websocket.Hub, logger *zap.Logger) *Server {
 	// Set Gin mode based on environment
 	if cfg.Server.Env == "production" {
 		gin.SetMode(gin.ReleaseMode)
@@ -48,6 +50,7 @@ func NewServer(cfg *config.Config, jwtService *auth.JWTService, authService *aut
 	serverHandler := handlers.NewServerHandler(serverService, logger)
 	agentHandler := handlers.NewAgentHandler(agentService, logger)
 	marketplaceHandler := handlers.NewMarketplaceHandler(marketplaceService, logger)
+	backupHandler := handlers.NewBackupHandler(backupService, backupScheduler, logger)
 	wsHandler := websocket.NewHandler(wsHub, jwtService, logger)
 
 	server := &Server{
@@ -57,6 +60,7 @@ func NewServer(cfg *config.Config, jwtService *auth.JWTService, authService *aut
 		serverHandler:     serverHandler,
 		agentHandler:      agentHandler,
 		marketplaceHandler: marketplaceHandler,
+		backupHandler:     backupHandler,
 		wsHandler:         wsHandler,
 		jwtService:        jwtService,
 		logger:            logger,
@@ -159,6 +163,23 @@ func (s *Server) setupRoutes() {
 				marketplace.POST("/servers/:server_id/plugins/uninstall", s.marketplaceHandler.UninstallPlugin)
 				marketplace.POST("/servers/:server_id/plugins/update", s.marketplaceHandler.UpdatePlugin)
 			}
+
+			// Backup routes
+			backups := api.Group("/backups")
+			{
+				// Backup details
+				backups.GET("/:backup_id", s.backupHandler.GetBackup)
+				backups.DELETE("/:backup_id", s.backupHandler.DeleteBackup)
+				backups.POST("/:backup_id/restore", s.backupHandler.RestoreBackup)
+			}
+
+			// Server backup management
+			servers.GET("/:server_id/backups", s.backupHandler.ListBackups)
+			servers.POST("/:server_id/backups", s.backupHandler.CreateBackup)
+			servers.POST("/:server_id/backups/manual", s.backupHandler.RunManualBackup)
+			servers.GET("/:server_id/backup-config", s.backupHandler.GetBackupConfig)
+			servers.PUT("/:server_id/backup-config", s.backupHandler.UpdateBackupConfig)
+			servers.GET("/:server_id/backup-stats", s.backupHandler.GetBackupStats)
 
 			// Protected example endpoint
 			api.GET("/protected", func(c *gin.Context) {

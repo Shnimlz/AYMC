@@ -16,6 +16,7 @@ import (
 	"github.com/aymc/backend/pkg/logger"
 	"github.com/aymc/backend/services/agents"
 	"github.com/aymc/backend/services/auth"
+	"github.com/aymc/backend/services/backup"
 	"github.com/aymc/backend/services/marketplace"
 	"github.com/aymc/backend/services/server"
 	"go.uber.org/zap"
@@ -90,6 +91,18 @@ func main() {
 	marketplaceService := marketplace.NewService(database.GetDB(), agentService, logger.GetLogger())
 	logger.Info("Marketplace service initialized")
 
+	// Initialize backup service
+	backupDir := cfg.Server.Host + "/backups" // TODO: hacer esto configurable
+	backupService := backup.NewService(database.GetDB(), agentService, logger.GetLogger(), backupDir)
+	logger.Info("Backup service initialized")
+
+	// Initialize backup scheduler
+	backupScheduler := backup.NewScheduler(database.GetDB(), backupService, logger.GetLogger())
+	if err := backupScheduler.Start(); err != nil {
+		logger.Fatal("Failed to start backup scheduler", zap.Error(err))
+	}
+	logger.Info("Backup scheduler started")
+
 	// Initialize WebSocket hub
 	wsHub := websocket.NewHub(logger.GetLogger())
 	logger.Info("WebSocket hub initialized")
@@ -98,7 +111,7 @@ func main() {
 	go wsHub.Run()
 
 	// Initialize REST API server
-	apiServer := rest.NewServer(cfg, jwtService, authService, serverService, agentService, marketplaceService, wsHub, logger.GetLogger())
+	apiServer := rest.NewServer(cfg, jwtService, authService, serverService, agentService, marketplaceService, backupService, backupScheduler, wsHub, logger.GetLogger())
 	logger.Info("REST API server initialized")
 
 	// Start server in a goroutine
@@ -114,6 +127,10 @@ func main() {
 	<-quit
 
 	logger.Info("Shutting down server...")
+
+	// Stop backup scheduler
+	backupScheduler.Stop()
+	logger.Info("Backup scheduler stopped")
 
 	// Stop WebSocket hub
 	wsHub.Stop()
