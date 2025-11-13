@@ -97,15 +97,39 @@ impl SSHClient {
                 private_key_data,
                 passphrase,
             } => {
-                // Guardar temporalmente la clave en memoria
-                session
-                    .userauth_pubkey_memory(
-                        &config.username,
-                        None,
-                        private_key_data,
-                        passphrase.as_deref(),
-                    )
-                    .context("Autenticación con clave privada (memoria) fallida")?;
+                // Crear un archivo temporal para la clave privada
+                use std::io::Write;
+                let temp_dir = std::env::temp_dir();
+                let temp_key_path = temp_dir.join(format!("aymc_key_{}.tmp", std::process::id()));
+                
+                // Escribir la clave en el archivo temporal
+                let mut temp_file = std::fs::File::create(&temp_key_path)
+                    .context("No se pudo crear archivo temporal para clave privada")?;
+                temp_file
+                    .write_all(private_key_data.as_bytes())
+                    .context("No se pudo escribir clave privada temporal")?;
+                
+                // Establecer permisos restrictivos (solo lectura para el propietario)
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    let mut perms = std::fs::metadata(&temp_key_path)?.permissions();
+                    perms.set_mode(0o600);
+                    std::fs::set_permissions(&temp_key_path, perms)?;
+                }
+                
+                // Autenticar usando el archivo temporal
+                let result = session.userauth_pubkey_file(
+                    &config.username,
+                    None,
+                    &temp_key_path,
+                    passphrase.as_deref(),
+                );
+                
+                // Eliminar el archivo temporal inmediatamente
+                let _ = std::fs::remove_file(&temp_key_path);
+                
+                result.context("Autenticación con clave privada (memoria) fallida")?;
             }
         }
 
