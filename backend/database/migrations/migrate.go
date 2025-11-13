@@ -10,19 +10,52 @@ import (
 func RunMigrations(db *gorm.DB, log *zap.Logger) error {
 	log.Info("Running database migrations...")
 
-	// Auto migrate all models
-	err := db.AutoMigrate(
-		&models.User{},
-		&models.Agent{},
-		&models.Server{},
-		&models.Plugin{},
-		&models.ServerPlugin{},
-		&models.Backup{},
-		&models.ServerMetric{},
-	)
+	// Migrate models ONE BY ONE to ensure proper order for foreign keys
+	log.Info("Migrating users table...")
+	if err := db.AutoMigrate(&models.User{}); err != nil {
+		log.Error("Failed to migrate users", zap.Error(err))
+		return err
+	}
 
-	if err != nil {
-		log.Error("Failed to run migrations", zap.Error(err))
+	log.Info("Migrating agents table...")
+	if err := db.AutoMigrate(&models.Agent{}); err != nil {
+		log.Error("Failed to migrate agents", zap.Error(err))
+		return err
+	}
+
+	log.Info("Migrating plugins table...")
+	if err := db.AutoMigrate(&models.Plugin{}); err != nil {
+		log.Error("Failed to migrate plugins", zap.Error(err))
+		return err
+	}
+
+	log.Info("Migrating servers table...")
+	if err := db.AutoMigrate(&models.Server{}); err != nil {
+		log.Error("Failed to migrate servers", zap.Error(err))
+		return err
+	}
+
+	log.Info("Migrating server_plugins table...")
+	if err := db.AutoMigrate(&models.ServerPlugin{}); err != nil {
+		log.Error("Failed to migrate server_plugins", zap.Error(err))
+		return err
+	}
+
+	log.Info("Migrating backups table...")
+	if err := db.AutoMigrate(&models.Backup{}); err != nil {
+		log.Error("Failed to migrate backups", zap.Error(err))
+		return err
+	}
+
+	log.Info("Migrating backup_configs table...")
+	if err := db.AutoMigrate(&models.BackupConfig{}); err != nil {
+		log.Error("Failed to migrate backup_configs", zap.Error(err))
+		return err
+	}
+
+	log.Info("Migrating server_metrics table...")
+	if err := db.AutoMigrate(&models.ServerMetric{}); err != nil {
+		log.Error("Failed to migrate server_metrics", zap.Error(err))
 		return err
 	}
 

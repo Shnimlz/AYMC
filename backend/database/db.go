@@ -37,7 +37,8 @@ func Connect(cfg *config.DatabaseConfig, log *zap.Logger) error {
 		NowFunc: func() time.Time {
 			return time.Now().UTC()
 		},
-		PrepareStmt: true,
+		PrepareStmt:                              true,
+		DisableForeignKeyConstraintWhenMigrating: true,
 	}
 
 	// Open connection

@@ -174,12 +174,12 @@ func (s *Server) setupRoutes() {
 			}
 
 			// Server backup management
-			servers.GET("/:server_id/backups", s.backupHandler.ListBackups)
-			servers.POST("/:server_id/backups", s.backupHandler.CreateBackup)
-			servers.POST("/:server_id/backups/manual", s.backupHandler.RunManualBackup)
-			servers.GET("/:server_id/backup-config", s.backupHandler.GetBackupConfig)
-			servers.PUT("/:server_id/backup-config", s.backupHandler.UpdateBackupConfig)
-			servers.GET("/:server_id/backup-stats", s.backupHandler.GetBackupStats)
+			servers.GET("/:id/backups", s.backupHandler.ListBackups)
+			servers.POST("/:id/backups", s.backupHandler.CreateBackup)
+			servers.POST("/:id/backups/manual", s.backupHandler.RunManualBackup)
+			servers.GET("/:id/backup-config", s.backupHandler.GetBackupConfig)
+			servers.PUT("/:id/backup-config", s.backupHandler.UpdateBackupConfig)
+			servers.GET("/:id/backup-stats", s.backupHandler.GetBackupStats)
 
 			// Protected example endpoint
 			api.GET("/protected", func(c *gin.Context) {

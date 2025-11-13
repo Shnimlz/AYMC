@@ -1,7 +1,43 @@
-import { createRouter, createWebHistory, RouteRecordRaw } from "vue-router";
+import { createRouter, createWebHistory } from "vue-router";
+import type { RouteRecordRaw } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
+import { invoke } from "@tauri-apps/api/core";
 
 const routes: RouteRecordRaw[] = [
+  // Rutas de Onboarding (primera vez)
+  {
+    path: "/welcome",
+    name: "Welcome",
+    component: () => import("@/views/Onboarding/Welcome.vue"),
+    meta: { requiresAuth: false, title: "Bienvenida" },
+  },
+  {
+    path: "/ssh-setup",
+    name: "SSHSetup",
+    component: () => import("@/views/Onboarding/SSHSetup.vue"),
+    meta: { requiresAuth: false, title: "Configuración SSH" },
+  },
+  {
+    path: "/detection",
+    name: "Detection",
+    component: () => import("@/views/Onboarding/Detection.vue"),
+    meta: {
+      requiresAuth: false,
+      requiresSSH: true,
+      title: "Detección de Servicios",
+    },
+  },
+  {
+    path: "/installer",
+    name: "Installer",
+    component: () => import("@/views/Onboarding/Installer.vue"),
+    meta: {
+      requiresAuth: false,
+      requiresSSH: true,
+      title: "Instalación de AYMC",
+    },
+  },
+  // Rutas de autenticación existentes
   {
     path: "/login",
     name: "Login",
@@ -87,7 +123,7 @@ const router = createRouter({
 });
 
 // Navigation guard
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, _from, next) => {
   const authStore = useAuthStore();
   const requiresAuth = to.matched.some(
     (record) => record.meta.requiresAuth !== false
@@ -96,6 +132,23 @@ router.beforeEach((to, from, next) => {
   // Actualizar título de la página
   if (to.meta.title) {
     document.title = `${to.meta.title} - AYMC`;
+  }
+
+  // Verificar si la ruta requiere conexión SSH
+  if (to.meta.requiresSSH) {
+    try {
+      const isConnected = await invoke<boolean>("ssh_is_connected");
+
+      if (!isConnected) {
+        console.warn("SSH no conectado, redirigiendo a setup");
+        next({ name: "SSHSetup" });
+        return;
+      }
+    } catch (error) {
+      console.error("Error verificando SSH:", error);
+      next({ name: "SSHSetup" });
+      return;
+    }
   }
 
   // Si la ruta requiere autenticación y no está autenticado

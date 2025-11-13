@@ -267,8 +267,10 @@ EOF
 if [ $? -eq 0 ]; then
     log_success "Base de datos creada"
     
-    # Actualizar configuración del backend usando reemplazo seguro
-    sed -i "s|^DB_PASSWORD=.*|DB_PASSWORD=${DB_PASSWORD}|" "$CONFIG_DIR/backend.env"
+    # Actualizar configuración del backend usando método seguro
+    grep -v "^DB_PASSWORD=" "$CONFIG_DIR/backend.env" > "$CONFIG_DIR/backend.env.tmp"
+    echo "DB_PASSWORD=${DB_PASSWORD}" >> "$CONFIG_DIR/backend.env.tmp"
+    mv "$CONFIG_DIR/backend.env.tmp" "$CONFIG_DIR/backend.env"
     
     log_success "Contraseña de base de datos configurada"
 else
@@ -283,8 +285,10 @@ echo ""
 
 log_info "Generando JWT secret..."
 JWT_SECRET=$(openssl rand -base64 64 | tr -d "=+/" | cut -c1-64)
-# Usar | como delimitador en sed para evitar problemas con caracteres especiales
-sed -i "s|^JWT_SECRET=.*|JWT_SECRET=${JWT_SECRET}|" "$CONFIG_DIR/backend.env"
+# Usar método más seguro: crear archivo temporal y reemplazar
+grep -v "^JWT_SECRET=" "$CONFIG_DIR/backend.env" > "$CONFIG_DIR/backend.env.tmp"
+echo "JWT_SECRET=${JWT_SECRET}" >> "$CONFIG_DIR/backend.env.tmp"
+mv "$CONFIG_DIR/backend.env.tmp" "$CONFIG_DIR/backend.env"
 log_success "JWT secret generado"
 echo ""
 
